@@ -1,0 +1,1004 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Online Exam Result Viewer</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --navy: #0a0e1a;
+    --navy2: #111827;
+    --navy3: #1a2236;
+    --card: #141c2e;
+    --border: rgba(99,179,237,0.13);
+    --accent: #38bdf8;
+    --accent2: #818cf8;
+    --accent3: #34d399;
+    --danger: #f87171;
+    --warn: #fbbf24;
+    --text: #e2e8f0;
+    --muted: #64748b;
+    --glow: 0 0 32px rgba(56,189,248,0.18);
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--navy);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ─── GRID BG ─── */
+  .grid-bg {
+    position: fixed; inset: 0; z-index: 0;
+    background-image:
+      linear-gradient(rgba(56,189,248,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(56,189,248,0.04) 1px, transparent 1px);
+    background-size: 48px 48px;
+    pointer-events: none;
+  }
+  .grid-bg::after {
+    content: '';
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse 80% 60% at 50% 0%, rgba(56,189,248,0.08) 0%, transparent 70%);
+  }
+
+  /* ─── PAGES ─── */
+  .page { display: none; position: relative; z-index: 1; min-height: 100vh; }
+  .page.active { display: flex; flex-direction: column; }
+
+  /* ─── NAVBAR ─── */
+  nav {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 40px;
+    height: 64px;
+    background: rgba(10,14,26,0.85);
+    border-bottom: 1px solid var(--border);
+    backdrop-filter: blur(12px);
+    position: sticky; top: 0; z-index: 100;
+  }
+  .nav-logo {
+    font-family: 'Syne', sans-serif;
+    font-weight: 800; font-size: 1.1rem;
+    color: var(--accent);
+    letter-spacing: -0.5px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .nav-logo .dot { width: 8px; height: 8px; background: var(--accent); border-radius: 50%; display: inline-block; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.4;} }
+  .nav-links { display: flex; gap: 8px; align-items: center; }
+  .nav-btn {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.78rem; font-weight: 500;
+    padding: 7px 18px; border-radius: 6px;
+    border: 1px solid var(--border);
+    background: transparent; color: var(--muted);
+    cursor: pointer; transition: all .2s;
+    letter-spacing: 0.5px;
+  }
+  .nav-btn:hover { border-color: var(--accent); color: var(--accent); background: rgba(56,189,248,0.06); }
+  .nav-btn.active-page { border-color: var(--accent); color: var(--accent); background: rgba(56,189,248,0.1); }
+  .nav-badge {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.7rem; padding: 3px 10px; border-radius: 20px;
+    background: rgba(56,189,248,0.12); color: var(--accent); border: 1px solid rgba(56,189,248,0.25);
+  }
+
+  /* ─── BUTTONS ─── */
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    font-family: 'DM Sans', sans-serif; font-weight: 600; font-size: 0.9rem;
+    padding: 12px 28px; border-radius: 8px; border: none; cursor: pointer;
+    transition: all .2s; letter-spacing: 0.2px;
+  }
+  .btn-primary {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: #fff; box-shadow: 0 4px 20px rgba(56,189,248,0.3);
+  }
+  .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 28px rgba(56,189,248,0.4); }
+  .btn-outline {
+    background: transparent; color: var(--accent);
+    border: 1px solid rgba(56,189,248,0.4);
+  }
+  .btn-outline:hover { background: rgba(56,189,248,0.08); }
+  .btn-danger { background: rgba(248,113,113,0.15); color: var(--danger); border: 1px solid rgba(248,113,113,0.3); }
+  .btn-danger:hover { background: rgba(248,113,113,0.25); }
+  .btn-success { background: rgba(52,211,153,0.15); color: var(--accent3); border: 1px solid rgba(52,211,153,0.3); }
+  .btn-success:hover { background: rgba(52,211,153,0.25); }
+  .btn-sm { padding: 7px 16px; font-size: 0.8rem; }
+
+  /* ─── CARDS ─── */
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px; padding: 28px;
+    transition: border-color .2s;
+  }
+  .card:hover { border-color: rgba(56,189,248,0.25); }
+
+  /* ─── INPUTS ─── */
+  .form-group { display: flex; flex-direction: column; gap: 6px; }
+  .form-label { font-size: 0.78rem; font-weight: 600; color: var(--muted); letter-spacing: 0.8px; text-transform: uppercase; font-family: 'DM Mono', monospace; }
+  .form-input {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid var(--border);
+    border-radius: 8px; padding: 12px 16px;
+    color: var(--text); font-family: 'DM Sans', sans-serif; font-size: 0.9rem;
+    transition: border-color .2s, box-shadow .2s;
+    outline: none; width: 100%;
+  }
+  .form-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(56,189,248,0.1); }
+  .form-input::placeholder { color: var(--muted); }
+  select.form-input option { background: var(--navy2); }
+
+  /* ─── BADGE ─── */
+  .badge {
+    display: inline-flex; align-items: center;
+    font-family: 'DM Mono', monospace; font-size: 0.72rem; font-weight: 500;
+    padding: 3px 10px; border-radius: 20px; letter-spacing: 0.5px;
+  }
+  .badge-pass { background: rgba(52,211,153,0.12); color: var(--accent3); border: 1px solid rgba(52,211,153,0.25); }
+  .badge-fail { background: rgba(248,113,113,0.12); color: var(--danger); border: 1px solid rgba(248,113,113,0.25); }
+  .badge-pending { background: rgba(251,191,36,0.12); color: var(--warn); border: 1px solid rgba(251,191,36,0.25); }
+
+  /* ─── TABLE ─── */
+  table { width: 100%; border-collapse: collapse; }
+  thead tr { border-bottom: 1px solid var(--border); }
+  th {
+    font-family: 'DM Mono', monospace; font-size: 0.72rem; font-weight: 500;
+    color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px;
+    padding: 10px 16px; text-align: left;
+  }
+  td { padding: 13px 16px; font-size: 0.875rem; border-bottom: 1px solid rgba(255,255,255,0.04); }
+  tbody tr { transition: background .15s; }
+  tbody tr:hover { background: rgba(255,255,255,0.025); }
+
+  /* ─── STAT CARDS ─── */
+  .stat { display: flex; flex-direction: column; gap: 4px; }
+  .stat-val { font-family: 'Syne', sans-serif; font-size: 2rem; font-weight: 800; }
+  .stat-label { font-size: 0.78rem; color: var(--muted); letter-spacing: 0.4px; }
+  .accent-text { color: var(--accent); }
+  .accent2-text { color: var(--accent2); }
+  .accent3-text { color: var(--accent3); }
+  .warn-text { color: var(--warn); }
+
+  /* ─── PROGRESS BAR ─── */
+  .progress-bar { height: 6px; border-radius: 3px; background: rgba(255,255,255,0.07); overflow: hidden; }
+  .progress-fill { height: 100%; border-radius: 3px; transition: width 1s cubic-bezier(.4,0,.2,1); }
+
+  /* ─── TOAST ─── */
+  #toast {
+    position: fixed; bottom: 32px; right: 32px; z-index: 9999;
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: 10px; padding: 14px 22px;
+    font-size: 0.875rem; color: var(--text);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    transform: translateY(100px); opacity: 0;
+    transition: all .3s cubic-bezier(.4,0,.2,1);
+    display: flex; align-items: center; gap: 10px;
+  }
+  #toast.show { transform: translateY(0); opacity: 1; }
+  #toast.success { border-left: 3px solid var(--accent3); }
+  #toast.error { border-left: 3px solid var(--danger); }
+
+  /* ─── MODAL ─── */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0; z-index: 500;
+    background: rgba(0,0,0,0.7); backdrop-filter: blur(4px);
+    align-items: center; justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: var(--navy2); border: 1px solid var(--border);
+    border-radius: 16px; padding: 32px; width: 520px; max-width: 95vw;
+    position: relative; animation: slideUp .3s ease;
+  }
+  @keyframes slideUp { from{transform:translateY(24px);opacity:0;} to{transform:translateY(0);opacity:1;} }
+  .modal-title { font-family: 'Syne', sans-serif; font-size: 1.2rem; font-weight: 700; margin-bottom: 24px; }
+  .modal-close {
+    position: absolute; top: 16px; right: 16px;
+    background: none; border: none; color: var(--muted);
+    font-size: 1.4rem; cursor: pointer; line-height: 1;
+    transition: color .2s;
+  }
+  .modal-close:hover { color: var(--text); }
+
+  /* ═══════════════════════════════════════
+     LOGIN PAGE
+  ═══════════════════════════════════════ */
+  #login-page {
+    align-items: center; justify-content: center;
+    background: radial-gradient(ellipse 100% 80% at 50% -10%, rgba(56,189,248,0.12) 0%, transparent 60%);
+  }
+  .login-container {
+    width: 420px; max-width: 95vw;
+    animation: fadeInUp .6s ease;
+  }
+  @keyframes fadeInUp { from{transform:translateY(30px);opacity:0;} to{transform:translateY(0);opacity:1;} }
+  .login-logo {
+    text-align: center; margin-bottom: 36px;
+  }
+  .login-logo .icon {
+    width: 64px; height: 64px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 16px; margin: 0 auto 16px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 1.8rem; box-shadow: var(--glow);
+  }
+  .login-logo h1 { font-family: 'Syne', sans-serif; font-size: 1.4rem; font-weight: 800; }
+  .login-logo p { font-size: 0.82rem; color: var(--muted); margin-top: 4px; }
+  .login-tabs { display: flex; gap: 0; margin-bottom: 24px; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+  .login-tab {
+    flex: 1; padding: 10px; font-size: 0.84rem; font-weight: 600;
+    background: transparent; border: none; color: var(--muted);
+    cursor: pointer; transition: all .2s; font-family: 'DM Sans', sans-serif;
+  }
+  .login-tab.active { background: rgba(56,189,248,0.12); color: var(--accent); }
+  .login-form { display: flex; flex-direction: column; gap: 18px; }
+  .login-form .btn { width: 100%; margin-top: 6px; padding: 14px; font-size: 0.95rem; }
+  .login-hint { font-size: 0.78rem; color: var(--muted); text-align: center; margin-top: 4px; font-family: 'DM Mono', monospace; }
+  .login-divider { display: flex; align-items: center; gap: 12px; color: var(--muted); font-size: 0.78rem; }
+  .login-divider::before, .login-divider::after { content:''; flex:1; height:1px; background: var(--border); }
+
+  /* ═══════════════════════════════════════
+     MAIN / STUDENT PAGE
+  ═══════════════════════════════════════ */
+  .page-content { flex: 1; padding: 36px 40px; max-width: 1200px; margin: 0 auto; width: 100%; }
+  .page-header { margin-bottom: 32px; }
+  .page-header h2 { font-family: 'Syne', sans-serif; font-size: 1.8rem; font-weight: 800; }
+  .page-header p { color: var(--muted); font-size: 0.875rem; margin-top: 4px; }
+  .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 28px; }
+  .search-row { display: flex; gap: 12px; margin-bottom: 24px; flex-wrap: wrap; }
+  .search-row .form-input { flex: 1; min-width: 200px; }
+  .result-card { margin-bottom: 20px; }
+  .result-header { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px; margin-bottom: 20px; }
+  .result-student { display: flex; flex-direction: column; gap: 4px; }
+  .result-student h3 { font-family: 'Syne', sans-serif; font-size: 1.1rem; font-weight: 700; }
+  .result-student p { font-size: 0.8rem; color: var(--muted); font-family: 'DM Mono', monospace; }
+  .co-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid rgba(255,255,255,0.04); gap: 16px; }
+  .co-row:last-child { border-bottom: none; }
+  .co-label { font-family: 'DM Mono', monospace; font-size: 0.75rem; color: var(--accent2); font-weight: 500; min-width: 36px; }
+  .co-desc { font-size: 0.82rem; color: var(--text); flex: 1; }
+  .co-score { font-family: 'Syne', sans-serif; font-size: 1rem; font-weight: 700; min-width: 44px; text-align: right; }
+  .co-bar { flex: 0 0 120px; }
+  .btl-chip {
+    font-family: 'DM Mono', monospace; font-size: 0.7rem;
+    padding: 2px 8px; border-radius: 4px;
+    background: rgba(129,140,248,0.12); color: var(--accent2);
+    border: 1px solid rgba(129,140,248,0.2);
+    min-width: 48px; text-align: center;
+  }
+  .overall-score { text-align: center; padding: 20px; border-left: 1px solid var(--border); }
+  .overall-score .big { font-family: 'Syne', sans-serif; font-size: 3rem; font-weight: 800; }
+  .overall-score .label { font-size: 0.78rem; color: var(--muted); margin-top: 4px; }
+
+  /* ═══════════════════════════════════════
+     ADMIN PAGE
+  ═══════════════════════════════════════ */
+  .admin-layout { display: flex; flex: 1; min-height: 0; }
+  .sidebar {
+    width: 220px; flex-shrink: 0;
+    background: rgba(10,14,26,0.6);
+    border-right: 1px solid var(--border);
+    padding: 24px 16px;
+    display: flex; flex-direction: column; gap: 4px;
+  }
+  .sidebar-label { font-family: 'DM Mono', monospace; font-size: 0.68rem; color: var(--muted); letter-spacing: 1px; text-transform: uppercase; padding: 0 10px; margin-bottom: 8px; margin-top: 16px; }
+  .sidebar-label:first-child { margin-top: 0; }
+  .sidebar-btn {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 12px; border-radius: 7px; border: none;
+    background: transparent; color: var(--muted);
+    cursor: pointer; font-size: 0.875rem; font-family: 'DM Sans', sans-serif;
+    text-align: left; transition: all .15s; width: 100%;
+  }
+  .sidebar-btn:hover { background: rgba(255,255,255,0.04); color: var(--text); }
+  .sidebar-btn.active { background: rgba(56,189,248,0.1); color: var(--accent); }
+  .sidebar-icon { font-size: 1rem; }
+  .admin-content { flex: 1; overflow-y: auto; padding: 32px 36px; }
+  .section { display: none; }
+  .section.active { display: block; }
+  .section-title { font-family: 'Syne', sans-serif; font-size: 1.4rem; font-weight: 700; margin-bottom: 24px; }
+  .table-wrap { overflow-x: auto; border-radius: 10px; border: 1px solid var(--border); }
+  .action-row { display: flex; gap: 8px; }
+
+  /* Grade color */
+  .grade-s { color: #34d399; font-weight: 700; }
+  .grade-a { color: #38bdf8; font-weight: 700; }
+  .grade-b { color: #818cf8; font-weight: 700; }
+  .grade-c { color: #fbbf24; font-weight: 700; }
+  .grade-f { color: #f87171; font-weight: 700; }
+
+  /* Responsive */
+  @media(max-width:768px){
+    .stats-row { grid-template-columns: repeat(2,1fr); }
+    .page-content { padding: 20px 16px; }
+    nav { padding: 0 16px; }
+    .sidebar { width: 52px; }
+    .sidebar-btn span:not(.sidebar-icon) { display: none; }
+    .sidebar-label { display: none; }
+    .admin-content { padding: 20px 16px; }
+  }
+</style>
+</head>
+<body>
+<div class="grid-bg"></div>
+<div id="toast"></div>
+
+<!-- ═══════════ LOGIN PAGE ═══════════ -->
+<div class="page active" id="login-page">
+  <div class="login-container">
+    <div class="login-logo">
+      <div class="icon">🎓</div>
+      <h1>Online Exam Result Viewer</h1>
+      <p>Secure Academic Performance Portal</p>
+    </div>
+    <div class="card">
+      <div class="login-tabs">
+        <button class="login-tab active" onclick="switchLoginTab('student')">Student</button>
+        <button class="login-tab" onclick="switchLoginTab('admin')">Admin</button>
+      </div>
+      <div class="login-form" id="login-form">
+        <div class="form-group">
+          <label class="form-label">User ID</label>
+          <input class="form-input" id="login-id" type="text" placeholder="e.g. STU2024001" />
+        </div>
+        <div class="form-group">
+          <label class="form-label">Password</label>
+          <input class="form-input" id="login-pass" type="password" placeholder="••••••••" />
+        </div>
+        <button class="btn btn-primary" onclick="doLogin()">Sign In →</button>
+        <p class="login-hint" id="login-hint">Student: STU2024001 / pass123</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════ MAIN / STUDENT PAGE ═══════════ -->
+<div class="page" id="main-page">
+  <nav>
+    <div class="nav-logo"><span class="dot"></span>ExamResult<span style="color:var(--accent2)">Pro</span></div>
+    <div class="nav-links">
+      <span class="nav-badge" id="student-badge">Student</span>
+      <button class="nav-btn" onclick="logout()">Logout</button>
+    </div>
+  </nav>
+  <div class="page-content">
+    <div class="page-header">
+      <h2>My Exam Results</h2>
+      <p>View your Course Outcome scores and performance analysis</p>
+    </div>
+
+    <!-- Search -->
+    <div class="search-row">
+      <input class="form-input" id="sem-filter" placeholder="🔍  Search subject or semester..." oninput="filterResults()" style="max-width:340px;" />
+      <select class="form-input" id="subj-filter" onchange="filterResults()" style="max-width:200px;">
+        <option value="">All Subjects</option>
+        <option value="wt">Web Technologies</option>
+        <option value="ds">Data Structures</option>
+      </select>
+      <button class="btn btn-outline btn-sm" onclick="renderResults()">↺ Refresh</button>
+      <button class="btn btn-outline btn-sm" onclick="printResults()">⬇ Export</button>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-row" id="stats-row"></div>
+
+    <!-- Results -->
+    <div id="results-container"></div>
+  </div>
+</div>
+
+<!-- ═══════════ ADMIN PAGE ═══════════ -->
+<div class="page" id="admin-page">
+  <nav>
+    <div class="nav-logo"><span class="dot"></span>ExamResult<span style="color:var(--accent2)">Pro</span> <span style="font-size:0.7rem;color:var(--muted);font-family:'DM Mono',monospace;margin-left:4px;">Admin</span></div>
+    <div class="nav-links">
+      <span class="nav-badge" style="border-color:rgba(129,140,248,0.4);color:var(--accent2);background:rgba(129,140,248,0.1);">Administrator</span>
+      <button class="nav-btn" onclick="logout()">Logout</button>
+    </div>
+  </nav>
+  <div class="admin-layout">
+    <div class="sidebar">
+      <span class="sidebar-label">Navigation</span>
+      <button class="sidebar-btn active" onclick="showSection('dash')" id="sb-dash"><span class="sidebar-icon">📊</span><span>Dashboard</span></button>
+      <button class="sidebar-btn" onclick="showSection('students')" id="sb-students"><span class="sidebar-icon">👥</span><span>Students</span></button>
+      <button class="sidebar-btn" onclick="showSection('results')" id="sb-results"><span class="sidebar-icon">📋</span><span>Results</span></button>
+      <button class="sidebar-btn" onclick="showSection('courses')" id="sb-courses"><span class="sidebar-icon">📚</span><span>Courses</span></button>
+      <span class="sidebar-label">Tools</span>
+      <button class="sidebar-btn" onclick="showSection('upload')" id="sb-upload"><span class="sidebar-icon">⬆</span><span>Upload</span></button>
+      <button class="sidebar-btn" onclick="showSection('reports')" id="sb-reports"><span class="sidebar-icon">📈</span><span>Reports</span></button>
+    </div>
+    <div class="admin-content">
+
+      <!-- Dashboard -->
+      <div class="section active" id="sec-dash">
+        <div class="section-title">Dashboard Overview</div>
+        <div class="stats-row" style="margin-bottom:28px;" id="admin-stats"></div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+          <div class="card">
+            <div style="font-weight:600;margin-bottom:16px;font-family:'Syne',sans-serif;">Pass/Fail Distribution</div>
+            <div id="pf-chart" style="display:flex;flex-direction:column;gap:14px;"></div>
+          </div>
+          <div class="card">
+            <div style="font-weight:600;margin-bottom:16px;font-family:'Syne',sans-serif;">Recent Activity</div>
+            <div id="activity-log" style="display:flex;flex-direction:column;gap:10px;"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Students -->
+      <div class="section" id="sec-students">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+          <div class="section-title" style="margin:0;">Student Management</div>
+          <button class="btn btn-primary btn-sm" onclick="openAddStudent()">+ Add Student</button>
+        </div>
+        <div class="search-row" style="margin-bottom:16px;">
+          <input class="form-input" placeholder="🔍  Search students..." oninput="filterStudents(this.value)" style="max-width:320px;" />
+        </div>
+        <div class="table-wrap"><table id="students-table">
+          <thead><tr><th>ID</th><th>Name</th><th>Semester</th><th>Branch</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody id="students-tbody"></tbody>
+        </table></div>
+      </div>
+
+      <!-- Results -->
+      <div class="section" id="sec-results">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;">
+          <div class="section-title" style="margin:0;">Exam Results</div>
+          <button class="btn btn-primary btn-sm" onclick="openAddResult()">+ Add Result</button>
+        </div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Student ID</th><th>Subject</th><th>Semester</th><th>Total Marks</th><th>Grade</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody id="results-tbody"></tbody>
+        </table></div>
+      </div>
+
+      <!-- Courses -->
+      <div class="section" id="sec-courses">
+        <div class="section-title">Course Outcomes (CO)</div>
+        <div style="display:flex;flex-direction:column;gap:16px;" id="courses-list"></div>
+      </div>
+
+      <!-- Upload -->
+      <div class="section" id="sec-upload">
+        <div class="section-title">Upload Results</div>
+        <div class="card" style="max-width:500px;">
+          <div style="font-size:0.875rem;color:var(--muted);margin-bottom:20px;">Upload a CSV file with student results to bulk import data.</div>
+          <div class="form-group" style="margin-bottom:16px;">
+            <label class="form-label">Select Subject</label>
+            <select class="form-input">
+              <option>Web Technologies</option>
+              <option>Data Structures</option>
+            </select>
+          </div>
+          <div class="form-group" style="margin-bottom:16px;">
+            <label class="form-label">Semester</label>
+            <select class="form-input"><option>Sem 3</option><option>Sem 4</option><option>Sem 5</option></select>
+          </div>
+          <div style="border:2px dashed var(--border);border-radius:10px;padding:32px;text-align:center;cursor:pointer;transition:border-color .2s;" onmouseenter="this.style.borderColor='rgba(56,189,248,0.4)'" onmouseleave="this.style.borderColor=''">
+            <div style="font-size:2rem;margin-bottom:8px;">📄</div>
+            <div style="font-weight:600;margin-bottom:4px;">Drop CSV file here</div>
+            <div style="font-size:0.78rem;color:var(--muted);">or click to browse</div>
+          </div>
+          <button class="btn btn-primary" style="width:100%;margin-top:16px;" onclick="showToast('Upload feature ready for integration','success')">Upload Results</button>
+        </div>
+      </div>
+
+      <!-- Reports -->
+      <div class="section" id="sec-reports">
+        <div class="section-title">Analytics & Reports</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:24px;" id="report-stats"></div>
+        <div class="card">
+          <div style="font-weight:600;font-family:'Syne',sans-serif;margin-bottom:20px;">Subject-wise Performance</div>
+          <div id="subj-perf" style="display:flex;flex-direction:column;gap:16px;"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ═══ ADD STUDENT MODAL ═══ -->
+<div class="modal-overlay" id="add-student-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('add-student-modal')">×</button>
+    <div class="modal-title">Add New Student</div>
+    <div style="display:flex;flex-direction:column;gap:16px;">
+      <div class="form-group"><label class="form-label">Student ID</label><input class="form-input" id="ns-id" placeholder="STU2024XXX" /></div>
+      <div class="form-group"><label class="form-label">Full Name</label><input class="form-input" id="ns-name" placeholder="Student Name" /></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div class="form-group"><label class="form-label">Semester</label><select class="form-input" id="ns-sem"><option>Sem 3</option><option>Sem 4</option><option>Sem 5</option><option>Sem 6</option></select></div>
+        <div class="form-group"><label class="form-label">Branch</label><select class="form-input" id="ns-branch"><option>CSE</option><option>IT</option><option>ECE</option><option>EEE</option></select></div>
+      </div>
+      <div class="form-group"><label class="form-label">Password</label><input class="form-input" id="ns-pass" type="password" placeholder="Set login password" /></div>
+      <button class="btn btn-primary" onclick="addStudent()">Add Student</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ ADD RESULT MODAL ═══ -->
+<div class="modal-overlay" id="add-result-modal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('add-result-modal')">×</button>
+    <div class="modal-title">Add Exam Result</div>
+    <div style="display:flex;flex-direction:column;gap:14px;">
+      <div class="form-group"><label class="form-label">Student ID</label><input class="form-input" id="nr-id" placeholder="STU2024001" /></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div class="form-group"><label class="form-label">Subject</label><select class="form-input" id="nr-subj"><option value="wt">Web Technologies</option><option value="ds">Data Structures</option></select></div>
+        <div class="form-group"><label class="form-label">Semester</label><select class="form-input" id="nr-sem"><option>Sem 3</option><option>Sem 4</option><option>Sem 5</option></select></div>
+      </div>
+      <div style="font-size:0.8rem;color:var(--muted);font-family:'DM Mono',monospace;margin-top:4px;">CO Marks (out of 20 each)</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;" id="co-inputs"></div>
+      <button class="btn btn-primary" onclick="addResult()">Save Result</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════════════
+//  DATA STORE
+// ═══════════════════════════════════
+const COURSES = {
+  wt: {
+    name: 'Web Technologies',
+    code: 'CS3101',
+    semester: 'Sem 3',
+    cos: [
+      { id:'CO1', desc:'Apply Internet Fundamentals, HTML & Introductory CSS Styling', po:'PO3,PO9,PSO1', btl:3 },
+      { id:'CO2', desc:'Apply HTML Forms, Semantic Tags & Comprehensive CSS Layouts', po:'PO3,PO9,PSO1', btl:3 },
+      { id:'CO3', desc:'Apply JavaScript Programming Essentials', po:'PO3,PO9,PSO1', btl:3 },
+      { id:'CO4', desc:'Apply JavaScript Interactivity, DOM', po:'PO3,PO9,PSO1', btl:3 },
+      { id:'CO5', desc:'Apply Advanced Web Development & Deployment', po:'PO3,PO9,PSO1', btl:3 },
+    ]
+  },
+  ds: {
+    name: 'Data Structures',
+    code: 'CS3202',
+    semester: 'Sem 4',
+    cos: [
+      { id:'CO1', desc:'Analyze problem statements and reason about algorithmic efficiency using asymptotic notation (Big-O, Ω, Θ), recurrence relations, and implement classical searching and sorting algorithms in Java.', po:'PO2,PO3,PO5,PO1', btl:4 },
+      { id:'CO2', desc:'Design and implement Abstract Data Types (ADTs) using arrays and linked lists (singly, doubly, circular).', po:'PO1,PO2,PO3,PO5', btl:4 },
+      { id:'CO3', desc:'Apply stacks and queues (including circular queues and deques) to model real-world workflows, selecting appropriate implementations based on performance considerations.', po:'PO1,PO2,PO3,PO5', btl:3 },
+      { id:'CO4', desc:'Design and implement hash-based data structures and leverage Java Collections (List, Queue, Deque, Map) to build efficient, scalable solutions.', po:'PO3,PO5,PO2,PO1', btl:4 },
+      { id:'CO5', desc:'Design, Develop and evaluate common practical applications for linear Data Structures.', po:'PO1,PO2,PO3,PO5,PO9,PO11', btl:4 },
+      { id:'CO6', desc:'Skill the students to develop and create programs as well as applications in DS.', po:'PO1,PO2,PO3,PO5,PO9,PO11', btl:5 },
+    ]
+  }
+};
+
+let students = [
+  { id:'STU2024001', name:'Arjun Sharma', sem:'Sem 3', branch:'CSE', pass:'pass123', status:'active' },
+  { id:'STU2024002', name:'Priya Patel', sem:'Sem 4', branch:'IT', pass:'pass123', status:'active' },
+  { id:'STU2024003', name:'Rahul Verma', sem:'Sem 3', branch:'CSE', pass:'pass123', status:'active' },
+  { id:'STU2024004', name:'Sneha Reddy', sem:'Sem 4', branch:'ECE', pass:'pass123', status:'inactive' },
+];
+
+let results = [
+  { sid:'STU2024001', subj:'wt', sem:'Sem 3', scores:[18,16,17,15,19] },
+  { sid:'STU2024001', subj:'ds', sem:'Sem 4', scores:[14,16,12,17,15,13] },
+  { sid:'STU2024002', subj:'wt', sem:'Sem 3', scores:[20,19,18,20,17] },
+  { sid:'STU2024002', subj:'ds', sem:'Sem 4', scores:[18,17,19,16,18,20] },
+  { sid:'STU2024003', subj:'wt', sem:'Sem 3', scores:[12,14,10,11,13] },
+  { sid:'STU2024003', subj:'ds', sem:'Sem 4', scores:[9,11,8,12,10,7] },
+  { sid:'STU2024004', subj:'wt', sem:'Sem 3', scores:[16,15,17,14,18] },
+];
+
+let currentUser = null;
+let currentRole = null;
+let loginTab = 'student';
+
+// ═══════════════════════════════════
+//  AUTH
+// ═══════════════════════════════════
+function switchLoginTab(tab){
+  loginTab = tab;
+  document.querySelectorAll('.login-tab').forEach((t,i)=>{
+    t.classList.toggle('active', (i===0&&tab==='student')||(i===1&&tab==='admin'));
+  });
+  const hint = document.getElementById('login-hint');
+  if(tab==='student') hint.textContent = 'Student: STU2024001 / pass123';
+  else hint.textContent = 'Admin: admin / admin123';
+}
+
+function doLogin(){
+  const id = document.getElementById('login-id').value.trim();
+  const pw = document.getElementById('login-pass').value;
+  if(loginTab==='admin'){
+    if(id==='admin' && pw==='admin123'){
+      currentUser = { id:'admin', name:'Administrator' };
+      currentRole = 'admin';
+      showPage('admin-page');
+      renderAdmin();
+      showToast('Welcome, Administrator!','success');
+    } else showToast('Invalid admin credentials','error');
+    return;
+  }
+  const stu = students.find(s=>s.id===id && s.pass===pw);
+  if(stu){
+    currentUser = stu;
+    currentRole = 'student';
+    document.getElementById('student-badge').textContent = stu.name;
+    showPage('main-page');
+    renderResults();
+    showToast(`Welcome back, ${stu.name}!`,'success');
+  } else showToast('Invalid student ID or password','error');
+}
+
+function logout(){
+  currentUser = null; currentRole = null;
+  document.getElementById('login-id').value='';
+  document.getElementById('login-pass').value='';
+  showPage('login-page');
+  showToast('Logged out successfully','success');
+}
+
+// ═══════════════════════════════════
+//  PAGE ROUTING
+// ═══════════════════════════════════
+function showPage(id){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+// ═══════════════════════════════════
+//  STUDENT RESULTS
+// ═══════════════════════════════════
+function getGradeColor(pct){
+  if(pct>=90) return 'var(--accent3)';
+  if(pct>=75) return 'var(--accent)';
+  if(pct>=60) return 'var(--accent2)';
+  if(pct>=40) return 'var(--warn)';
+  return 'var(--danger)';
+}
+function getGradeLetter(pct){
+  if(pct>=90) return 'S';
+  if(pct>=80) return 'A';
+  if(pct>=70) return 'B';
+  if(pct>=60) return 'C';
+  if(pct>=50) return 'D';
+  return 'F';
+}
+
+function renderResults(){
+  if(!currentUser) return;
+  const myResults = results.filter(r=>r.sid===currentUser.id);
+  const container = document.getElementById('results-container');
+
+  // Stats
+  let totalPct = 0, passCount = 0;
+  myResults.forEach(r=>{
+    const max = COURSES[r.subj].cos.length * 20;
+    const got = r.scores.reduce((a,b)=>a+b,0);
+    const pct = (got/max)*100;
+    totalPct += pct;
+    if(pct>=50) passCount++;
+  });
+  const avgPct = myResults.length ? (totalPct/myResults.length).toFixed(1) : 0;
+
+  document.getElementById('stats-row').innerHTML = `
+    <div class="card stat"><div class="stat-val accent-text">${myResults.length}</div><div class="stat-label">Subjects</div></div>
+    <div class="card stat"><div class="stat-val accent3-text">${passCount}</div><div class="stat-label">Passed</div></div>
+    <div class="card stat"><div class="stat-val" style="color:${getGradeColor(avgPct)}">${avgPct}%</div><div class="stat-label">Average Score</div></div>
+    <div class="card stat"><div class="stat-val accent2-text">${getGradeLetter(avgPct)}</div><div class="stat-label">Overall Grade</div></div>
+  `;
+
+  if(!myResults.length){
+    container.innerHTML = `<div class="card" style="text-align:center;padding:48px;color:var(--muted);">No results available yet.</div>`;
+    return;
+  }
+
+  container.innerHTML = myResults.map(r=>{
+    const course = COURSES[r.subj];
+    const maxMarks = course.cos.length * 20;
+    const total = r.scores.reduce((a,b)=>a+b,0);
+    const pct = ((total/maxMarks)*100).toFixed(1);
+    const grade = getGradeLetter(pct);
+    const gradeColor = getGradeColor(pct);
+    const coRows = course.cos.map((co,i)=>{
+      const sc = r.scores[i]??0;
+      const cp = (sc/20)*100;
+      return `<div class="co-row">
+        <span class="co-label">${co.id}</span>
+        <span class="co-desc">${co.desc.substring(0,72)}${co.desc.length>72?'…':''}</span>
+        <div class="co-bar"><div class="progress-bar"><div class="progress-fill" style="width:${cp}%;background:${getGradeColor(cp)};"></div></div></div>
+        <span class="co-score" style="color:${getGradeColor(cp)}">${sc}/20</span>
+        <span class="btl-chip">BTL ${co.btl}</span>
+      </div>`;
+    }).join('');
+
+    return `<div class="card result-card">
+      <div class="result-header">
+        <div class="result-student">
+          <h3>${course.name}</h3>
+          <p>${course.code} · ${r.sem} · PO: ${course.cos[0].po}</p>
+        </div>
+        <div style="display:flex;align-items:center;gap:16px;">
+          <span class="${pct>=50?'badge-pass':'badge-fail'} badge">${pct>=50?'PASS':'FAIL'}</span>
+          <div class="overall-score">
+            <div class="big" style="color:${gradeColor}">${grade}</div>
+            <div style="font-size:1.1rem;font-weight:700;color:${gradeColor}">${total}/${maxMarks}</div>
+            <div class="label">${pct}%</div>
+          </div>
+        </div>
+      </div>
+      <div>${coRows}</div>
+    </div>`;
+  }).join('');
+}
+
+function filterResults(){
+  const q = document.getElementById('sem-filter').value.toLowerCase();
+  const s = document.getElementById('subj-filter').value;
+  document.querySelectorAll('.result-card').forEach(card=>{
+    const text = card.textContent.toLowerCase();
+    const match = (!q||text.includes(q)) && (!s||card.textContent.toLowerCase().includes(COURSES[s]?.name.toLowerCase()||''));
+    card.style.display = match?'':'none';
+  });
+}
+
+function printResults(){
+  showToast('Preparing PDF export...','success');
+  setTimeout(()=>window.print(),300);
+}
+
+// ═══════════════════════════════════
+//  ADMIN
+// ═══════════════════════════════════
+function showSection(id){
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.sidebar-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('sec-'+id).classList.add('active');
+  document.getElementById('sb-'+id).classList.add('active');
+}
+
+function renderAdmin(){
+  renderAdminDash();
+  renderStudentsTable(students);
+  renderResultsTable();
+  renderCourses();
+  renderReports();
+}
+
+function renderAdminDash(){
+  const passCount = results.filter(r=>{
+    const course = COURSES[r.subj];
+    const max = course.cos.length*20;
+    const tot = r.scores.reduce((a,b)=>a+b,0);
+    return (tot/max)*100>=50;
+  }).length;
+  document.getElementById('admin-stats').innerHTML = `
+    <div class="card stat"><div class="stat-val accent-text">${students.length}</div><div class="stat-label">Total Students</div></div>
+    <div class="card stat"><div class="stat-val accent3-text">${results.length}</div><div class="stat-label">Results Entered</div></div>
+    <div class="card stat"><div class="stat-val accent2-text">${passCount}</div><div class="stat-label">Passed</div></div>
+    <div class="card stat"><div class="stat-val warn-text">${results.length-passCount}</div><div class="stat-label">Failed</div></div>
+  `;
+
+  // Pass/Fail per subject
+  const pf = document.getElementById('pf-chart');
+  pf.innerHTML = Object.entries(COURSES).map(([k,c])=>{
+    const subs = results.filter(r=>r.subj===k);
+    if(!subs.length) return '';
+    const pass = subs.filter(r=>{
+      const mx = c.cos.length*20;
+      return (r.scores.reduce((a,b)=>a+b,0)/mx)*100>=50;
+    }).length;
+    const pct = Math.round((pass/subs.length)*100);
+    return `<div>
+      <div style="display:flex;justify-content:space-between;font-size:0.82rem;margin-bottom:6px;">
+        <span>${c.name}</span><span style="color:var(--accent3)">${pct}% Pass</span>
+      </div>
+      <div class="progress-bar">
+        <div class="progress-fill" style="width:${pct}%;background:linear-gradient(90deg,var(--accent3),var(--accent));"></div>
+      </div>
+    </div>`;
+  }).join('');
+
+  // Activity
+  document.getElementById('activity-log').innerHTML = [
+    { ico:'✅', msg:'Result uploaded for STU2024001', time:'2 min ago' },
+    { ico:'👤', msg:'New student STU2024004 added', time:'1 hr ago' },
+    { ico:'📊', msg:'Semester report generated', time:'3 hr ago' },
+    { ico:'🔄', msg:'Results updated for Web Tech', time:'Yesterday' },
+  ].map(a=>`<div style="display:flex;gap:12px;align-items:flex-start;padding:10px;background:rgba(255,255,255,0.02);border-radius:7px;">
+    <span>${a.ico}</span>
+    <div style="flex:1;font-size:0.82rem;">${a.msg}<div style="color:var(--muted);font-size:0.74rem;margin-top:2px;">${a.time}</div></div>
+  </div>`).join('');
+}
+
+function renderStudentsTable(list){
+  document.getElementById('students-tbody').innerHTML = list.map(s=>`
+    <tr>
+      <td><span style="font-family:'DM Mono',monospace;font-size:0.8rem;color:var(--accent)">${s.id}</span></td>
+      <td>${s.name}</td>
+      <td>${s.sem}</td>
+      <td><span class="badge" style="background:rgba(56,189,248,0.1);color:var(--accent);border:1px solid rgba(56,189,248,0.2)">${s.branch}</span></td>
+      <td><span class="badge ${s.status==='active'?'badge-pass':'badge-fail'}">${s.status}</span></td>
+      <td><div class="action-row">
+        <button class="btn btn-outline btn-sm" onclick="viewStudent('${s.id}')">View</button>
+        <button class="btn btn-danger btn-sm" onclick="removeStudent('${s.id}')">Delete</button>
+      </div></td>
+    </tr>
+  `).join('');
+}
+
+function filterStudents(q){
+  const f = students.filter(s=>s.id.toLowerCase().includes(q.toLowerCase())||s.name.toLowerCase().includes(q.toLowerCase()));
+  renderStudentsTable(f);
+}
+
+function renderResultsTable(){
+  document.getElementById('results-tbody').innerHTML = results.map((r,i)=>{
+    const course = COURSES[r.subj];
+    const max = course.cos.length*20;
+    const tot = r.scores.reduce((a,b)=>a+b,0);
+    const pct = (tot/max)*100;
+    const grade = getGradeLetter(pct);
+    const gc = ['S','A'].includes(grade)?'grade-s':grade==='B'?'grade-a':grade==='C'?'grade-b':grade==='D'?'grade-c':'grade-f';
+    return `<tr>
+      <td><span style="font-family:'DM Mono',monospace;font-size:0.8rem;color:var(--accent)">${r.sid}</span></td>
+      <td>${course.name}</td>
+      <td>${r.sem}</td>
+      <td>${tot}/${max}</td>
+      <td><span class="${gc}">${grade}</span></td>
+      <td><span class="badge ${pct>=50?'badge-pass':'badge-fail'}">${pct>=50?'PASS':'FAIL'}</span></td>
+      <td><div class="action-row">
+        <button class="btn btn-outline btn-sm" onclick="editResult(${i})">Edit</button>
+        <button class="btn btn-danger btn-sm" onclick="deleteResult(${i})">Delete</button>
+      </div></td>
+    </tr>`;
+  }).join('');
+}
+
+function renderCourses(){
+  document.getElementById('courses-list').innerHTML = Object.entries(COURSES).map(([k,c])=>`
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px;">
+        <div>
+          <div style="font-family:'Syne',sans-serif;font-size:1.1rem;font-weight:700;">${c.name}</div>
+          <div style="font-size:0.78rem;color:var(--muted);font-family:'DM Mono',monospace;margin-top:2px;">${c.code} · ${c.semester}</div>
+        </div>
+        <span class="badge" style="background:rgba(56,189,248,0.1);color:var(--accent);border:1px solid rgba(56,189,248,0.2)">${c.cos.length} COs</span>
+      </div>
+      <table>
+        <thead><tr><th>CO</th><th>Course Outcome</th><th>PO/PSO</th><th>BTL</th></tr></thead>
+        <tbody>${c.cos.map(co=>`
+          <tr>
+            <td><span style="font-family:'DM Mono',monospace;color:var(--accent2);font-size:0.8rem;">${co.id}</span></td>
+            <td style="font-size:0.82rem;">${co.desc}</td>
+            <td><span style="font-family:'DM Mono',monospace;font-size:0.75rem;color:var(--muted)">${co.po}</span></td>
+            <td><span class="btl-chip">Level ${co.btl}</span></td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+  `).join('');
+}
+
+function renderReports(){
+  const allPcts = results.map(r=>{
+    const max = COURSES[r.subj].cos.length*20;
+    return ((r.scores.reduce((a,b)=>a+b,0))/max)*100;
+  });
+  const avg = allPcts.length?(allPcts.reduce((a,b)=>a+b,0)/allPcts.length).toFixed(1):0;
+  const top = students.find(s=>results.filter(r=>r.sid===s.id).length);
+  document.getElementById('report-stats').innerHTML = `
+    <div class="card stat"><div class="stat-val accent-text">${avg}%</div><div class="stat-label">Overall Average</div></div>
+    <div class="card stat"><div class="stat-val accent3-text">${allPcts.filter(p=>p>=50).length}/${allPcts.length}</div><div class="stat-label">Pass Rate</div></div>
+    <div class="card stat"><div class="stat-val accent2-text">${top?top.name.split(' ')[0]:'—'}</div><div class="stat-label">Top Performer</div></div>
+  `;
+  document.getElementById('subj-perf').innerHTML = Object.entries(COURSES).map(([k,c])=>{
+    const subs = results.filter(r=>r.subj===k);
+    if(!subs.length) return '';
+    const avgP = subs.reduce((acc,r)=>{
+      const mx=c.cos.length*20; return acc+(r.scores.reduce((a,b)=>a+b,0)/mx)*100;
+    },0)/subs.length;
+    return `<div>
+      <div style="display:flex;justify-content:space-between;font-size:0.875rem;font-weight:600;margin-bottom:8px;">
+        <span>${c.name}</span><span style="color:${getGradeColor(avgP)}">${avgP.toFixed(1)}% · ${getGradeLetter(avgP)}</span>
+      </div>
+      <div class="progress-bar" style="height:10px;">
+        <div class="progress-fill" style="width:${avgP}%;background:linear-gradient(90deg,var(--accent),var(--accent2));"></div>
+      </div>
+      <div style="font-size:0.75rem;color:var(--muted);margin-top:4px;">${subs.length} students · ${c.cos.length} Course Outcomes</div>
+    </div>`;
+  }).join('');
+}
+
+// ═══════════════════════════════════
+//  STUDENT ACTIONS
+// ═══════════════════════════════════
+function openAddStudent(){
+  document.getElementById('add-student-modal').classList.add('open');
+}
+function addStudent(){
+  const id=document.getElementById('ns-id').value.trim();
+  const name=document.getElementById('ns-name').value.trim();
+  const sem=document.getElementById('ns-sem').value;
+  const branch=document.getElementById('ns-branch').value;
+  const pass=document.getElementById('ns-pass').value;
+  if(!id||!name||!pass){ showToast('Please fill all fields','error'); return; }
+  if(students.find(s=>s.id===id)){ showToast('Student ID already exists','error'); return; }
+  students.push({id,name,sem,branch,pass,status:'active'});
+  closeModal('add-student-modal');
+  renderStudentsTable(students);
+  renderAdminDash();
+  showToast(`Student ${name} added!`,'success');
+}
+function removeStudent(id){
+  students = students.filter(s=>s.id!==id);
+  renderStudentsTable(students);
+  renderAdminDash();
+  showToast('Student removed','success');
+}
+function viewStudent(id){
+  const s=students.find(x=>x.id===id);
+  const r=results.filter(x=>x.sid===id);
+  showToast(`${s.name} · ${r.length} result(s) on record`,'success');
+}
+
+// ═══════════════════════════════════
+//  RESULT ACTIONS
+// ═══════════════════════════════════
+function openAddResult(){
+  buildCOInputs();
+  document.getElementById('add-result-modal').classList.add('open');
+}
+function buildCOInputs(){
+  const subj=document.getElementById('nr-subj').value;
+  const cos=COURSES[subj].cos;
+  document.getElementById('co-inputs').innerHTML=cos.map((co,i)=>`
+    <div class="form-group">
+      <label class="form-label">${co.id}</label>
+      <input class="form-input" type="number" min="0" max="20" id="nr-co-${i}" placeholder="0-20" />
+    </div>`).join('');
+}
+document.addEventListener('change',e=>{if(e.target.id==='nr-subj')buildCOInputs();});
+function addResult(){
+  const sid=document.getElementById('nr-id').value.trim();
+  const subj=document.getElementById('nr-subj').value;
+  const sem=document.getElementById('nr-sem').value;
+  const cos=COURSES[subj].cos;
+  const scores=cos.map((_,i)=>parseInt(document.getElementById(`nr-co-${i}`)?.value||0,10));
+  if(!sid){ showToast('Enter Student ID','error'); return; }
+  if(!students.find(s=>s.id===sid)){ showToast('Student ID not found','error'); return; }
+  results.push({sid,subj,sem,scores});
+  closeModal('add-result-modal');
+  renderResultsTable();
+  renderAdminDash();
+  renderReports();
+  showToast('Result saved!','success');
+}
+function deleteResult(i){
+  results.splice(i,1);
+  renderResultsTable();
+  renderAdminDash();
+  showToast('Result deleted','success');
+}
+function editResult(i){
+  showToast('Edit mode — update functionality ready for expansion','success');
+}
+
+// ═══════════════════════════════════
+//  UTILS
+// ═══════════════════════════════════
+function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+function showToast(msg,type='success'){
+  const t=document.getElementById('toast');
+  t.textContent=(type==='success'?'✓ ':'✕ ')+msg;
+  t.className='show '+type;
+  setTimeout(()=>t.classList.remove('show'),3000);
+}
+// Close modal on overlay click
+document.querySelectorAll('.modal-overlay').forEach(o=>{
+  o.addEventListener('click',e=>{ if(e.target===o) o.classList.remove('open'); });
+});
+// Animate progress bars when visible
+setTimeout(()=>{
+  document.querySelectorAll('.progress-fill').forEach(b=>{ b.style.width=b.style.width; });
+},500);
+</script>
+</body>
+</html>
